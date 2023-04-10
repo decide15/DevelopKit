@@ -2,6 +2,8 @@ import 'dart:convert';
 
 class Json2DartKit {
   late final bool _autoConvertToString;
+  String? extendsClassName = "BaseModel";
+  List<String>? superClassVariable = ["success", "status", "msg"];
   List<String> _clax = [];
 
   Json2DartKit(bool autoConvertToString) {
@@ -10,7 +12,7 @@ class Json2DartKit {
 
   String jsonObjToDart(String className, String jsonStr, bool autoConvertToString) {
     Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
-    _jsonToClass(className, jsonMap);
+    _jsonToClass(className, jsonMap, superClassVariable: superClassVariable, extendsClassName: extendsClassName);
     StringBuffer stringBuffer = StringBuffer();
     for (var o in _clax) {
       stringBuffer.write(o.toString());
@@ -19,19 +21,28 @@ class Json2DartKit {
     return stringBuffer.toString();
   }
 
-  _jsonToClass(String className, Map<String, dynamic> jsonMap) {
+  _jsonToClass(String className, Map<String, dynamic> jsonMap, {String? extendsClassName, List<String>? superClassVariable}) {
     StringBuffer stringBuffer = StringBuffer();
-    stringBuffer.write("class $className {\n");
-    stringBuffer.write(_buildConstructor(className, jsonMap));
-    stringBuffer.write(_buildFromJson(className, jsonMap));
+    stringBuffer.write("class $className ");
+    if (extendsClassName != null) {
+      stringBuffer.write("extends $extendsClassName");
+    }
+    stringBuffer.write("{\n");
+    stringBuffer.write(_buildConstructor(className, jsonMap, extendsClassName: extendsClassName, superClassVariable: superClassVariable));
+    stringBuffer.write(_buildFromJson(className, jsonMap, extendsClassName: extendsClassName, superClassVariable: superClassVariable));
+    stringBuffer.write("\n");
+    stringBuffer.write(_buildToJson(className, jsonMap));
+    stringBuffer.write("\n");
     jsonMap.forEach((key, value) {
-      stringBuffer.write("\t");
-      stringBuffer.write(_getTypeName(key, value));
-      stringBuffer.write(" ");
-      stringBuffer.write(key);
-      stringBuffer.write(" = ");
-      stringBuffer.write(_getDefaultValue(value, key));
-      stringBuffer.write(";\n");
+      if (superClassVariable?.contains(key) != true) {
+        stringBuffer.write("\t");
+        stringBuffer.write(_getTypeName(key, value));
+        stringBuffer.write(" ");
+        stringBuffer.write(key);
+        stringBuffer.write(" = ");
+        stringBuffer.write(_getDefaultValue(value, key));
+        stringBuffer.write(";\n");
+      }
     });
     stringBuffer.write('\n}');
     stringBuffer.toString();
@@ -40,13 +51,13 @@ class Json2DartKit {
     }
   }
 
-  String _buildConstructor(String className, Map<String, dynamic> jsonMap) {
+  String _buildConstructor(String className, Map<String, dynamic> jsonMap, {String? extendsClassName, List<String>? superClassVariable}) {
     StringBuffer stringBuffer = StringBuffer();
     stringBuffer.write("\t$className();\n");
     return stringBuffer.toString();
   }
 
-  String _buildFromJson(String className, Map<String, dynamic> jsonMap) {
+  String _buildFromJson(String className, Map<String, dynamic> jsonMap, {String? extendsClassName, List<String>? superClassVariable}) {
     StringBuffer stringBuffer = StringBuffer();
     stringBuffer.write("\t");
     stringBuffer.write(className);
@@ -56,12 +67,18 @@ class Json2DartKit {
     stringBuffer.write("dynamic json");
     stringBuffer.write(")");
     stringBuffer.write("{\n");
+    if(extendsClassName!=null){
+      stringBuffer.write("\tsuper.fromJson(json)");
+      stringBuffer.write("\n");
+    }
     jsonMap.forEach((key, value) {
-      stringBuffer.write("\t");
-      stringBuffer.write(key);
-      stringBuffer.write(" = ");
-      stringBuffer.write(_obtainValueFromJson(key, value));
-      stringBuffer.write(";\n");
+      if (superClassVariable?.contains(key) != true) {
+        stringBuffer.write("\t");
+        stringBuffer.write(key);
+        stringBuffer.write(" = ");
+        stringBuffer.write(_obtainValueFromJson(key, value));
+        stringBuffer.write(";\n");
+      }
     });
     stringBuffer.write("\n}");
     return stringBuffer.toString();
@@ -151,4 +168,23 @@ class Json2DartKit {
     }
     return "List";
   }
+
+  String _buildToJson(String className, Map<String, dynamic> jsonMap, {String? extendsClassName, List<String>? superClassVariable}) {
+    StringBuffer stringBuffer = StringBuffer();
+    stringBuffer.write("Map<String,dynamic> toJson(){\n");
+    stringBuffer.write("\tfinal map = <String,dynamic>{};\n");
+    if (extendsClassName != null) {
+      stringBuffer.write("\tmap.addAll(super.toJson());");
+    }
+    jsonMap.forEach((key, value) {
+      if(superClassVariable?.contains(key)!=true){
+        stringBuffer.write("\tmap['$key'] = $key;\n");
+      }
+    });
+    stringBuffer.write("\treturn map;\n");
+    stringBuffer.write("}");
+    return stringBuffer.toString();
+  }
+
+
 }
